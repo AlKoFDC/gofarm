@@ -1,26 +1,30 @@
 package gopher
 
 import (
+	"context"
 	"fmt"
+	"sort"
 )
 
+const timeSpeed = 500
+
 type Farm struct {
-	gophers   map[int]gopher
-	nextIndex int
+	stable    map[int]*gopher
 	actions   chan func()
+	nextIndex int
 }
 
 func NewFarm() *Farm {
-	f := &Farm{
-		gophers: make(map[int]gopher),
+	farm := &Farm{
+		stable:  make(map[int]*gopher),
 		actions: make(chan func()),
 	}
 	go func() {
-		for a := range f.actions {
-			a()
+		for action := range farm.actions {
+			action()
 		}
 	}()
-	return f
+	return farm
 }
 
 func (f Farm) List() []string {
@@ -39,37 +43,44 @@ func (f *Farm) Kill(index int) error {
 	return <-response
 }
 
-func (f *Farm) Add() string {
+func (f *Farm) Add(ctx context.Context) string {
 	response := make(chan string)
 	f.actions <- func() {
-		response <- f.add()
+		response <- f.add(ctx)
 	}
 	return <-response
 }
 
 func (f Farm) list() []string {
-	list := make([]string, 0, f.count())
-	for id, g := range f.gophers {
-		list = append(list, fmt.Sprintf("%d: %s", id, g.String()))
+	list := make([]string, 0, len(f.stable))
+	for id, g := range f.stable {
+		list = append(list, fmt.Sprintf("%2d %s", id, g.String()))
 	}
-	return list
+	sort.Strings(list)
+	if len(list) < 1 {
+		return []string{}
+	}
+	return append(title, list...)
 }
 
 func (f *Farm) kill(index int) error {
-	if _, ok := f.gophers[index]; !ok {
+	gopher, ok := f.stable[index]
+	if !ok {
 		return fmt.Errorf("could not find a gopher with id %d to kill", index)
 	}
-	delete(f.gophers, index)
+	gopher.slaughter()
+	delete(f.stable, index)
 	return nil
 }
 
-func (f *Farm) add() string {
-	newGopher := spawn()
-	f.gophers[f.nextIndex] = newGopher
+func (f *Farm) add(ctx context.Context) string {
+	newGopher := spawn(ctx)
+	f.stable[f.nextIndex] = newGopher
 	f.nextIndex++
 	return newGopher.name
 }
 
-func (f Farm) count() int {
-	return len(f.gophers)
+var title = []string{
+	fmt.Sprintf("%s %20s %s %s %s", "ID", "GOPHER NAME", "SKILL", "RATE", "STATUS"),
+	"----------------------------------------------------",
 }

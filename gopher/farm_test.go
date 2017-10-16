@@ -1,14 +1,16 @@
 package gopher
 
 import (
-	"testing"
-	"strings"
+	"context"
+	"math"
 	"strconv"
+	"strings"
+	"testing"
 )
 
 func TestCountGophers(t *testing.T) {
 	populatedFarm := NewFarm()
-	populatedFarm.gophers = map[int]gopher{
+	populatedFarm.stable = map[int]*gopher{
 		1: {},
 		2: {},
 	}
@@ -22,7 +24,7 @@ func TestCountGophers(t *testing.T) {
 		{desc: "two gophers", farm: populatedFarm, expect: 2},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			if count := test.farm.count(); count != test.expect {
+			if count := len(test.farm.stable); count != test.expect {
 				t.Errorf("expected %d but got %d", test.expect, count)
 			}
 		})
@@ -31,36 +33,35 @@ func TestCountGophers(t *testing.T) {
 
 func TestAddGophers(t *testing.T) {
 	testFarm := NewFarm()
-	testFarm.Add()
-	if count := testFarm.count(); count != 1 {
+	testFarm.Add(context.Background())
+	if count := len(testFarm.stable); count != 1 {
 		t.Errorf("expected first gopher to be added to the farm, but got total %d", count)
 	}
-	testFarm.Add()
-	if count := testFarm.count(); count != 2 {
+	testFarm.Add(context.Background())
+	if count := len(testFarm.stable); count != 2 {
 		t.Errorf("expected second gopher to be added to the farm, but got total %d", count)
 	}
 }
 
 func TestList(t *testing.T) {
 	testFarm := NewFarm()
-	testFarm.Add()
-	testFarm.Add()
-	testFarm.Add()
-	if list := testFarm.List(); len(list) != testFarm.count() {
-		t.Errorf("expected to get the list of %d gophers, but got %d", testFarm.count(), len(list))
+	testFarm.Add(context.Background())
+	testFarm.Add(context.Background())
+	testFarm.Add(context.Background())
+	count := len(testFarm.stable) + 2 // plus two title lines
+	if list := testFarm.List(); len(list) != count {
+		t.Errorf("expected to get the list of %d gophers, but got %d", count, len(list))
 	}
 }
 
 func TestKill(t *testing.T) {
 	populatedFarm := NewFarm()
-	populatedFarm.gophers = map[int]gopher{
-		1: {},
-		2: {},
-	}
+	populatedFarm.add(context.Background())
+	populatedFarm.add(context.Background())
 
 	const (
-		ghostGopher = 0
-		realGopher = 1
+		ghostGopher = math.MaxInt64
+		realGopher  = 0
 	)
 
 	err := populatedFarm.Kill(ghostGopher)
@@ -76,7 +77,7 @@ func TestKill(t *testing.T) {
 		t.Errorf("expected to get no error trying to kill the real gopher id %d, but got %s", realGopher, err)
 	}
 
-	if expCount, c := 1, populatedFarm.count(); c != expCount {
+	if expCount, c := 1, len(populatedFarm.stable); c != expCount {
 		t.Errorf("expected number of gophers alive to be %d, but got %d", expCount, c)
 	}
 }

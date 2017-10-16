@@ -8,10 +8,11 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"context"
 )
 
 type mockedFarm struct {
-	addFn  func() string
+	addFn  func(context.Context) string
 	listFn func() []string
 	killFn func(int) error
 }
@@ -30,18 +31,18 @@ func (mf mockedFarm) Kill(index int) error {
 	return mf.killFn(index)
 }
 
-func (mf mockedFarm) Add() string {
+func (mf mockedFarm) Add(ctx context.Context) string {
 	if mf.addFn == nil {
 		return ""
 	}
-	return mf.addFn()
+	return mf.addFn(ctx)
 }
 
-var _ farmer = mockedFarm{}
+var _ Farmer = mockedFarm{}
 
 func TestGetHandlers(t *testing.T) {
 	const (
-		partialAddGopherSuccess = "Succesfully spawned gopher"
+		partialAddGopherSuccess = "Successfully spawned gopher"
 		gophersTemplate         = "/gophers"
 		addGopherTemplate       = "/gophers/add"
 		killGopherTemplate      = "/gophers/kill"

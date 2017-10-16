@@ -1,25 +1,29 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/AlKoFDC/gofarm/calltreeid"
 )
 
-type farmer interface {
+type Farmer interface {
 	List() []string
-	Add() string
+	Add(context.Context) string
 	Kill(int) error
 }
 
-func Handler(f farmer) http.HandlerFunc {
+func Handler(f Farmer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 		var response string
 		var status int
 		switch r.Method {
 		case http.MethodGet:
-			status, response = handleGet(f, r.RequestURI)
+			status, response = handleGet(ctx, f, r.RequestURI)
 		case http.MethodPost:
 			status = http.StatusMethodNotAllowed
 			response = fmt.Sprintf("%s: %s", methodNotAllowed, r.Method)
@@ -31,18 +35,19 @@ func Handler(f farmer) http.HandlerFunc {
 		w.Write([]byte(response))
 	}
 }
-func handleGet(f farmer, uri string) (int, string) {
+
+func handleGet(ctx context.Context, f Farmer, uri string) (int, string) {
 	uri = strings.Trim(uri, uriSeparator)
 	first, rest := shiftURI(uri)
 	switch first {
 	case "gophers":
-		return handleGophers(f, rest)
+		return handleGophers(ctx, f, rest)
 	default:
 		return http.StatusBadRequest, helpMessage
 	}
 }
 
-func handleGophers(f farmer, uri string) (int, string) {
+func handleGophers(ctx context.Context, f Farmer, uri string) (int, string) {
 	var (
 		status   int
 		response string
@@ -57,7 +62,7 @@ func handleGophers(f farmer, uri string) (int, string) {
 			response = fmt.Sprintf("%s\n\n  %s\n\n%s", fullGophersList, strings.Join(list, "\n  "), gophersHelpMessage)
 		}
 	case "add":
-		status, response = handleGophersAdd(f, rest)
+		status, response = handleGophersAdd(ctx, f, rest)
 	case "kill":
 		status, response = handleGophersKill(f, rest)
 	default:
@@ -66,14 +71,14 @@ func handleGophers(f farmer, uri string) (int, string) {
 	return status, response
 }
 
-func handleGophersAdd(f farmer, uri string) (int, string) {
+func handleGophersAdd(ctx context.Context, f Farmer, uri string) (int, string) {
 	if uri != "" {
 		return http.StatusBadRequest, fmt.Sprintf("%s: %s\n\n%s", addGopherInvalidParams, uri, gophersHelpMessage)
 	}
-	return http.StatusOK, fmt.Sprintf("%s: %s!\n\n%s", addGopherSuccess, f.Add(), gophersHelpMessage)
+	return http.StatusOK, fmt.Sprintf("%s: %s!\n\n%s", addGopherSuccess, f.Add(ctx), gophersHelpMessage)
 }
 
-func handleGophersKill(f farmer, uri string) (int, string) {
+func handleGophersKill(f Farmer, uri string) (int, string) {
 	idString, rest := shiftURI(uri)
 	id, err := strconv.Atoi(idString)
 	if err != nil || rest != "" {
@@ -103,11 +108,11 @@ const (
 	gophersHelpMessage = `Available commands:
  - /gophers/add  - spawns a new gopher
  - /gophers/kill/<gopher_id> - slaughters the gopher with <gopher_id>`
-	addGopherSuccess  = `Succesfully spawned gopher`
-	killGopherSuccess = `Succesfully slaughtered gopher`
-	killGopherFailure = `Could not slaughter gopher`
+	addGopherSuccess        = `Successfully spawned gopher`
+	killGopherSuccess       = `Successfully slaughtered gopher`
+	killGopherFailure       = `Could not slaughter gopher`
 	killGopherInvalidParams = "Parameters are not set properly for request"
-	addGopherInvalidParams = "Did not expect parameters for request"
+	addGopherInvalidParams  = "Did not expect parameters for request"
 )
 
 const (

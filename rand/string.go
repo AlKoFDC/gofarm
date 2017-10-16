@@ -1,4 +1,4 @@
-package gopher
+package rand
 
 import (
 	"math/rand"
@@ -9,9 +9,9 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func randomGopherName(lengthName int) string {
+func String(length int) string {
 	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	b := make([]rune, lengthName)
+	b := make([]rune, length)
 	for i := range b {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
